@@ -3,7 +3,7 @@ services:
     name: binance-proxy
     env: python
     region: singapore
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: python app.py
 
