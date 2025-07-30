@@ -93,6 +93,33 @@ def binance_klines_html():
     html += '</table>'
     return Response(html, mimetype='text/html')
 
+@app.route('/binance_klines_html/<symbol>/<interval>/<int:limit>')
+def binance_klines_html_path(symbol, interval, limit):
+    """
+    HTML representation of the /api/v3/klines response using path parameters.
+    Accepts symbol, interval, and limit directly in the URL path.
+    Returns an HTML table with kline data.
+    """
+    params = {'symbol': symbol, 'interval': interval, 'limit': limit}
+    try:
+        response = requests.get('https://api.binance.com/api/v3/klines', params=params)
+        response.raise_for_status()
+        data = response.json()
+    except requests.exceptions.RequestException as e:
+        return Response(f'<p>Error: {str(e)}</p>', mimetype='text/html'), 500
+
+    html = '<table border="1">'
+    headers = [
+        'Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time',
+        'Quote asset volume', 'Number of trades', 'Taker buy base asset volume',
+        'Taker buy quote asset volume', 'Ignore'
+    ]
+    html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
+    for row in data:
+        html += '<tr>' + ''.join(f'<td>{item}</td>' for item in row) + '</tr>'
+    html += '</table>'
+    return Response(html, mimetype='text/html')
+
 @app.route('/binance_klines/<symbol>/<interval>/<int:limit>')
 def binance_klines_path(symbol, interval, limit):
     """
