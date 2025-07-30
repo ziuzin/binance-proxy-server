@@ -20,14 +20,15 @@ def binance_klines():
     Returns the JSON response from Binance or an error message.
     """
     params = {k: v for k, v in request.args.items()}
+    # Require at least symbol and interval
     if 'symbol' not in params or 'interval' not in params:
         return jsonify({'error': 'symbol and interval parameters are required'}), 400
     try:
         response = requests.get('https://api.binance.com/api/v3/klines', params=params)
         response.raise_for_status()
+        return jsonify(response.json())
     except requests.exceptions.RequestException as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify(response.json())
 
 @app.route('/binance_account')
 def binance_account():
@@ -37,44 +38,75 @@ def binance_account():
     """
     if not BINANCE_API_KEY or not BINANCE_API_SECRET:
         return jsonify({'error': 'API key and secret must be configured as environment variables'}), 500
+
+    # Timestamp for the signature
     params = {'timestamp': int(time.time() * 1000)}
+    # Pass through any query params from the request
     for k, v in request.args.items():
         params[k] = v
+
+    # Build the query string and HMAC signature
     query_string = urlencode(params)
-    signature = hmac.new(BINANCE_API_SECRET.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        BINANCE_API_SECRET.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
     params['signature'] = signature
     headers = {'X-MBX-APIKEY': BINANCE_API_KEY}
+
     try:
         response = requests.get('https://api.binance.com/api/v3/account', params=params, headers=headers)
         response.raise_for_status()
+        return jsonify(response.json())
     except requests.exceptions.RequestException as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify(response.json())
 
 @app.route('/binance_klines_html')
 def binance_klines_html():
     """
     HTML representation of the /api/v3/klines response.
-    Accepts same query parameters as /binance_klines.
+    Accepts the same query parameters as /binance_klines.
     Returns an HTML table with kline data.
     """
     params = {k: v for k, v in request.args.items()}
     if 'symbol' not in params or 'interval' not in params:
         return Response('<p>symbol and interval parameters are required</p>', mimetype='text/html'), 400
+
     try:
         response = requests.get('https://api.binance.com/api/v3/klines', params=params)
         response.raise_for_status()
         data = response.json()
     except requests.exceptions.RequestException as e:
         return Response(f'<p>Error: {str(e)}</p>', mimetype='text/html'), 500
+
+    # Build a simple HTML table
     html = '<table border="1">'
-    headers = ['Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time', 'Quote asset volume',
-               'Number of trades', 'Taker buy base asset volume', 'Taker buy quote asset volume', 'Ignore']
+    headers = [
+        'Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time',
+        'Quote asset volume', 'Number of trades', 'Taker buy base asset volume',
+        'Taker buy quote asset volume', 'Ignore'
+    ]
     html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
     for row in data:
         html += '<tr>' + ''.join(f'<td>{item}</td>' for item in row) + '</tr>'
     html += '</table>'
     return Response(html, mimetype='text/html')
 
+@app.route('/binance_klines/<symbol>/<interval>/<int:limit>')
+def binance_klines_path(symbol, interval, limit):
+    """
+    Alternative route using path parameters for symbol, interval, and limit.
+    Returns the same JSON response as binance_klines.
+    """
+    params = {'symbol': symbol, 'interval': interval, 'limit': limit}
+    try:
+        response = requests.get('https://api.binance.com/api/v3/klines', params=params)
+        response.raise_for_status()
+        return jsonify(response.json())
+    except requests.exceptions.RequestException as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
+    # Default to PORT=5000 if not provided by the hosting platform
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
