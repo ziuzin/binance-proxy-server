@@ -20,7 +20,6 @@ def binance_klines():
     Returns the JSON response from Binance or an error message.
     """
     params = {k: v for k, v in request.args.items()}
-    # Require at least symbol and interval
     if 'symbol' not in params or 'interval' not in params:
         return jsonify({'error': 'symbol and interval parameters are required'}), 400
     try:
@@ -39,13 +38,10 @@ def binance_account():
     if not BINANCE_API_KEY or not BINANCE_API_SECRET:
         return jsonify({'error': 'API key and secret must be configured as environment variables'}), 500
 
-    # Timestamp for the signature
     params = {'timestamp': int(time.time() * 1000)}
-    # Pass through any query params from the request
     for k, v in request.args.items():
         params[k] = v
 
-    # Build the query string and HMAC signature
     query_string = urlencode(params)
     signature = hmac.new(
         BINANCE_API_SECRET.encode('utf-8'),
@@ -62,7 +58,9 @@ def binance_account():
     except requests.exceptions.RequestException as e:
         return jsonify({'error': str(e)}), 500
 
+# HTML via query string; support both /binance_klines_html and misspelled /binance_klnes_html
 @app.route('/binance_klines_html')
+@app.route('/binance_klnes_html')
 def binance_klines_html():
     """
     HTML representation of the /api/v3/klines response.
@@ -72,7 +70,6 @@ def binance_klines_html():
     params = {k: v for k, v in request.args.items()}
     if 'symbol' not in params or 'interval' not in params:
         return Response('<p>symbol and interval parameters are required</p>', mimetype='text/html'), 400
-
     try:
         response = requests.get('https://api.binance.com/api/v3/klines', params=params)
         response.raise_for_status()
@@ -80,20 +77,21 @@ def binance_klines_html():
     except requests.exceptions.RequestException as e:
         return Response(f'<p>Error: {str(e)}</p>', mimetype='text/html'), 500
 
-    # Build a simple HTML table
-    html = '<table border="1">'
     headers = [
         'Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time',
         'Quote asset volume', 'Number of trades', 'Taker buy base asset volume',
         'Taker buy quote asset volume', 'Ignore'
     ]
+    html = '<table border="1">'
     html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
     for row in data:
         html += '<tr>' + ''.join(f'<td>{item}</td>' for item in row) + '</tr>'
     html += '</table>'
     return Response(html, mimetype='text/html')
 
+# HTML via path parameters; support both /binance_klines_html/<...> and misspelled /binance_klnes_html/<...>
 @app.route('/binance_klines_html/<symbol>/<interval>/<int:limit>')
+@app.route('/binance_klnes_html/<symbol>/<interval>/<int:limit>')
 def binance_klines_html_path(symbol, interval, limit):
     """
     HTML representation of the /api/v3/klines response using path parameters.
@@ -108,19 +106,21 @@ def binance_klines_html_path(symbol, interval, limit):
     except requests.exceptions.RequestException as e:
         return Response(f'<p>Error: {str(e)}</p>', mimetype='text/html'), 500
 
-    html = '<table border="1">'
     headers = [
         'Open time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close time',
         'Quote asset volume', 'Number of trades', 'Taker buy base asset volume',
         'Taker buy quote asset volume', 'Ignore'
     ]
+    html = '<table border="1">'
     html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
     for row in data:
         html += '<tr>' + ''.join(f'<td>{item}</td>' for item in row) + '</tr>'
     html += '</table>'
     return Response(html, mimetype='text/html')
 
+# JSON via path parameters; support both /binance_klines/<...> and misspelled /binance_klnes/<...>
 @app.route('/binance_klines/<symbol>/<interval>/<int:limit>')
+@app.route('/binance_klnes/<symbol>/<interval>/<int:limit>')
 def binance_klines_path(symbol, interval, limit):
     """
     Alternative route using path parameters for symbol, interval, and limit.
